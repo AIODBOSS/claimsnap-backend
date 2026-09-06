@@ -1,0 +1,15 @@
+﻿__pycache__/
+*.py[cod]
+*$py.class
+.env
+google-credentials.json
+*.db
+*.sqlite3
+instance/
+dataset.zip
+dataset/
+raw_zips/
+uploads/
+test_video.webm
+thesis_charts/
+venv/
