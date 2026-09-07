@@ -8,7 +8,7 @@ from flask_sqlalchemy import SQLAlchemy
 app = Flask(__name__)
 CORS(app)
 
-UPLOAD_FOLDER = "uploads"
+UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 db_url = os.environ.get("DATABASE_URL", "sqlite:///memory_layer.db")
