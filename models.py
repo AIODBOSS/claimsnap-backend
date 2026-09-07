@@ -44,3 +44,5 @@ class Claim(db.Model):
             'createdAt': self.created_at.isoformat() + 'Z' if self.created_at else None,
             'updatedAt': self.updated_at.isoformat() + 'Z' if self.updated_at else None
         }
+
+    admin_corrected_label = db.Column(db.String(50), nullable=True)

@@ -44,7 +44,11 @@ with app.app_context():
     import sqlalchemy
     try:
         db.create_all()
+    except sqlalchemy.exc.IntegrityError:
+        db.session.rollback()
+        print("Tables already exist (concurrent worker init) - continuing")
     except Exception as e:
+        db.session.rollback()
         print(f"Skipping DB create: {e}")
 
 @app.route("/api/assess", methods=["POST"])
@@ -162,3 +166,13 @@ def adjuster_feedback():
 if __name__ == "__main__":
     app.run(port=5000, debug=True)
 
+
+@app.route('/api/admin/override/<int:claim_id>', methods=['POST'])
+def admin_override(claim_id):
+    from models import Claim
+    claim = Claim.query.get_or_404(claim_id)
+    data = request.json
+    claim.status = data.get('status', claim.status)
+    claim.admin_corrected_label = data.get('corrected_label')
+    db.session.commit()
+    return jsonify({'message': 'Override saved successfully'}), 200
