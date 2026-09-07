@@ -1,12 +1,15 @@
 import os
 import json
 from datetime import datetime
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 CORS(app)
+
+UPLOAD_FOLDER = "uploads"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 db_url = os.environ.get("DATABASE_URL", "sqlite:///memory_layer.db")
 if db_url.startswith("postgres://"):
@@ -44,13 +47,14 @@ class ClaimRecord(db.Model):
     ai_findings = db.Column(db.Text)
     created_at = db.Column(db.String(100))
     admin_corrected_label = db.Column(db.String(50), nullable=True)
+    video_filename = db.Column(db.String(255), nullable=True)
 
 with app.app_context():
     try:
         db.create_all()
-        # Ensure column exists on legacy production tables
         with db.engine.connect() as conn:
             conn.execute(db.text("ALTER TABLE claim_record ADD COLUMN IF NOT EXISTS admin_corrected_label VARCHAR(50);"))
+            conn.execute(db.text("ALTER TABLE claim_record ADD COLUMN IF NOT EXISTS video_filename VARCHAR(255);"))
             conn.commit()
     except Exception as e:
         db.session.rollback()
@@ -66,12 +70,13 @@ def assess_claim():
         asset_id = request.form["asset_id"]
         media_file = request.files[file_key]
         
-        temp_path = f"temp_capture_{asset_id}.webm"
-        media_file.save(temp_path)
+        filename = f"claim_{asset_id}_{int(datetime.utcnow().timestamp())}.webm"
+        save_path = os.path.join(UPLOAD_FOLDER, filename)
+        media_file.save(save_path)
         
         detections = []
         if model:
-            results = model.predict(source=temp_path, stream=True, conf=0.25)
+            results = model.predict(source=save_path, stream=True, conf=0.25)
             highest_conf_per_class = {}
             for frame in results:
                 for box in frame.boxes:
@@ -81,10 +86,7 @@ def assess_claim():
                         highest_conf_per_class[cls_name] = conf
             detections = [{"class": k, "confidence": v} for k, v in highest_conf_per_class.items()]
         else:
-            detections = [{"class": "General Damage", "confidence": 0.85}]
-        
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
+            detections = [{"class": "Surface Scratch", "confidence": 0.85}]
             
         flags = []
         history = AssetHistory.query.filter_by(asset_id=asset_id).all()
@@ -112,13 +114,15 @@ def assess_claim():
                 status=final_status,
                 ai_confidence=highest_conf,
                 ai_findings=json.dumps(findings_list),
-                created_at=datetime.utcnow().isoformat()
+                created_at=datetime.utcnow().isoformat(),
+                video_filename=filename
             )
             db.session.add(claim)
         else:
             claim.status = final_status
             claim.ai_confidence = highest_conf
             claim.ai_findings = json.dumps(findings_list)
+            claim.video_filename = filename
             
         db.session.commit()
         return jsonify({"asset_id": asset_id})
@@ -126,6 +130,10 @@ def assess_claim():
         db.session.rollback()
         print(f"Error in assess_claim: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+@app.route("/api/media/<filename>", methods=["GET"])
+def get_media(filename):
+    return send_from_directory(UPLOAD_FOLDER, filename)
 
 @app.route("/api/claims", methods=["GET"])
 def get_all_claims():
@@ -138,45 +146,9 @@ def get_all_claims():
         "aiConfidence": round(r.ai_confidence, 1) if r.ai_confidence else None,
         "aiFindings": json.loads(r.ai_findings) if r.ai_findings else [],
         "createdAt": r.created_at,
-        "adminCorrectedLabel": r.admin_corrected_label
+        "adminCorrectedLabel": r.admin_corrected_label,
+        "videoUrl": f"/api/media/{r.video_filename}" if r.video_filename else None
     } for r in records])
-
-@app.route("/api/claims/<claim_id>", methods=["GET"])
-def get_claim(claim_id):
-    claim = ClaimRecord.query.get(claim_id)
-    if not claim:
-        return jsonify({"error": "Claim not found"}), 404
-        
-    return jsonify({
-        "id": claim.id,
-        "status": claim.status,
-        "claimType": claim.claim_type,
-        "policyNumber": claim.policy_number,
-        "createdAt": claim.created_at,
-        "aiConfidence": round(claim.ai_confidence, 1) if claim.ai_confidence else None,
-        "aiFindings": json.loads(claim.ai_findings) if claim.ai_findings else [],
-        "adminCorrectedLabel": claim.admin_corrected_label
-    })
-
-@app.route("/api/feedback", methods=["POST"])
-def adjuster_feedback():
-    data = request.json
-    asset_id = data.get("asset_id")
-    corrected = data.get("corrected_class")
-    
-    claim = ClaimRecord.query.get(asset_id)
-    if claim:
-        if "Approved" in corrected:
-            claim.status = "approved"
-        else:
-            claim.status = "rejected"
-        
-    log = CalibrationLog(asset_id=asset_id, original_class=data.get('original_class', 'Unknown'), corrected_class=corrected)
-    history = AssetHistory(asset_id=asset_id, damage_class=corrected, status='overridden')
-    db.session.add(log)
-    db.session.add(history)
-    db.session.commit()
-    return jsonify({"message": "Feedback integrated into memory layer"})
 
 @app.route('/api/admin/override/<string:claim_id>', methods=['POST'])
 def admin_override(claim_id):
