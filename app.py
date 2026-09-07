@@ -150,6 +150,23 @@ def get_all_claims():
         "videoUrl": f"/api/media/{r.video_filename}" if r.video_filename else None
     } for r in records])
 
+@app.route("/api/claims/<string:claim_id>", methods=["GET"])
+def get_claim_by_id(claim_id):
+    r = ClaimRecord.query.get(claim_id)
+    if not r:
+        return jsonify({"error": "Claim not found"}), 404
+    return jsonify({
+        "id": r.id,
+        "status": r.status,
+        "claimType": r.claim_type,
+        "policyNumber": r.policy_number,
+        "aiConfidence": round(r.ai_confidence, 1) if r.ai_confidence else None,
+        "aiFindings": json.loads(r.ai_findings) if r.ai_findings else [],
+        "createdAt": r.created_at,
+        "adminCorrectedLabel": r.admin_corrected_label,
+        "videoUrl": f"/api/media/{r.video_filename}" if r.video_filename else None
+    })
+
 @app.route('/api/admin/override/<string:claim_id>', methods=['POST'])
 def admin_override(claim_id):
     claim = ClaimRecord.query.get(claim_id)
