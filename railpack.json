@@ -9,7 +9,8 @@
         "pip install -r requirements.txt",
         "pip uninstall -y opencv-python opencv-python-contrib opencv-contrib-python || true",
         "pip install --force-reinstall --no-deps opencv-python-headless",
-        "pip show opencv-python-headless"
+        "pip show opencv-python-headless",
+        "ls /app/.venv/lib/python3.13/site-packages/ | grep -i gunicorn || echo GUNICORN_NOT_IN_VENV_AT_BUILD_END"
       ]
     }
   },
