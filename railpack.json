@@ -1,4 +1,4 @@
-﻿{
+{
   "$schema": "https://schema.railpack.com",
   "buildAptPackages": ["libxcb1", "libxext6", "libsm6", "libxrender1", "libglib2.0-0", "libgl1"],
   "steps": {
