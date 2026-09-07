@@ -1,4 +1,5 @@
-﻿import os
+from flask_migrate import Migrate
+import os
 import json
 from datetime import datetime
 from flask import Flask, request, jsonify
@@ -41,7 +42,11 @@ class ClaimRecord(db.Model):
     created_at = db.Column(db.String(100))
 
 with app.app_context():
-    db.create_all()
+    import sqlalchemy
+    try:
+        db.create_all()
+    except Exception as e:
+        print(f"Skipping DB create: {e}")
 
 @app.route("/api/assess", methods=["POST"])
 def assess_claim():
@@ -157,3 +162,4 @@ def adjuster_feedback():
 
 if __name__ == "__main__":
     app.run(port=5000, debug=True)
+
