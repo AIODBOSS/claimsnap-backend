@@ -1,0 +1,19 @@
+﻿{
+  "$schema": "https://schema.railpack.com",
+  "buildAptPackages": ["libxcb1", "libxext6", "libsm6", "libxrender1", "libglib2.0-0", "libgl1"],
+  "steps": {
+    "install": {
+      "commands": [
+        "python -m venv /app/.venv",
+        "pip install -r requirements.txt",
+        "pip uninstall -y opencv-python opencv-python-contrib opencv-contrib-python || true",
+        "pip install --force-reinstall --no-deps opencv-python-headless",
+        "pip show opencv-python-headless",
+        "python -c \"import cv2; print(cv2.__file__)\" || echo CV2_IMPORT_FAILED_AT_BUILD"
+      ]
+    }
+  },
+  "deploy": {
+    "aptPackages": ["libxcb1", "libxext6", "libsm6", "libxrender1", "libglib2.0-0", "libgl1"]
+  }
+}

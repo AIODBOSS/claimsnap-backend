@@ -1,8 +1,0 @@
-﻿[phases.install]
-cmds = [
-  "pip install -r requirements.txt",
-  "pip uninstall -y opencv-python opencv-python-contrib opencv-contrib-python || true",
-  "pip install --force-reinstall --no-deps opencv-python-headless",
-  "pip show opencv-python-headless",
-  "python -c \"import cv2; print(cv2.__file__)\" || echo CV2_IMPORT_FAILED_AT_BUILD"
-]
