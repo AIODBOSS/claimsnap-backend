@@ -39,6 +39,7 @@ class ClaimRecord(db.Model):
     ai_confidence = db.Column(db.Float)
     ai_findings = db.Column(db.Text)
     created_at = db.Column(db.String(100))
+    admin_corrected_label = db.Column(db.String(50), nullable=True)
 
 with app.app_context():
     import sqlalchemy
@@ -124,7 +125,8 @@ def get_all_claims():
         "policyNumber": r.policy_number,
         "aiConfidence": round(r.ai_confidence, 1) if r.ai_confidence else None,
         "aiFindings": json.loads(r.ai_findings) if r.ai_findings else [],
-        "createdAt": r.created_at
+        "createdAt": r.created_at,
+        "adminCorrectedLabel": r.admin_corrected_label
     } for r in records])
 
 @app.route("/api/claims/<claim_id>", methods=["GET"])
@@ -140,7 +142,8 @@ def get_claim(claim_id):
         "policyNumber": claim.policy_number,
         "createdAt": claim.created_at,
         "aiConfidence": round(claim.ai_confidence, 1) if claim.ai_confidence else None,
-        "aiFindings": json.loads(claim.ai_findings) if claim.ai_findings else []
+        "aiFindings": json.loads(claim.ai_findings) if claim.ai_findings else [],
+        "adminCorrectedLabel": claim.admin_corrected_label
     })
 
 @app.route("/api/feedback", methods=["POST"])
@@ -163,16 +166,21 @@ def adjuster_feedback():
     db.session.commit()
     return jsonify({"message": "Feedback integrated into memory layer"})
 
-if __name__ == "__main__":
-    app.run(port=5000, debug=True)
-
-
-@app.route('/api/admin/override/<int:claim_id>', methods=['POST'])
+@app.route('/api/admin/override/<string:claim_id>', methods=['POST'])
 def admin_override(claim_id):
-    from models import Claim
-    claim = Claim.query.get_or_404(claim_id)
-    data = request.json
+    claim = ClaimRecord.query.get(claim_id)
+    if not claim:
+        return jsonify({"error": "Claim not found"}), 404
+    data = request.json or {}
     claim.status = data.get('status', claim.status)
     claim.admin_corrected_label = data.get('corrected_label')
     db.session.commit()
-    return jsonify({'message': 'Override saved successfully'}), 200
+    return jsonify({
+        'message': 'Override saved successfully',
+        'claim_id': claim.id,
+        'corrected_label': claim.admin_corrected_label,
+        'status': claim.status
+    }), 200
+
+if __name__ == "__main__":
+    app.run(port=5000, debug=True)
