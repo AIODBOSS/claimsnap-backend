@@ -5,9 +5,10 @@
     "install": {
       "inputs": ["...", { "local": true, "include": ["."] }],
       "commands": [
-        "python -m venv /app/.venv && /app/.venv/bin/pip install -r requirements.txt && /app/.venv/bin/pip uninstall -y opencv-python opencv-python-contrib opencv-contrib-python || true",
-        "/app/.venv/bin/pip install --force-reinstall --no-deps opencv-python-headless",
-        "/app/.venv/bin/pip show gunicorn"
+        "python -m venv /app/.venv && /app/.venv/bin/pip install -r requirements.txt",
+        "/app/.venv/bin/pip uninstall -y opencv-python opencv-python-contrib opencv-contrib-python || true",
+        "rm -rf /app/.venv/lib/python*/site-packages/cv2 /app/.venv/lib/python*/site-packages/opencv_*",
+        "/app/.venv/bin/pip install --no-cache-dir --force-reinstall opencv-python-headless"
       ]
     }
   },

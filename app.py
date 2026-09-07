@@ -1,4 +1,3 @@
-from flask_migrate import Migrate
 import os
 import json
 from datetime import datetime
