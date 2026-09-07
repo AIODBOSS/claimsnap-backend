@@ -16,7 +16,6 @@ app.config["SQLALCHEMY_DATABASE_URI"] = db_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 
-# Safe YOLO loading with fallback check
 try:
     from ultralytics import YOLO
     model = YOLO("models/best.pt")
@@ -47,12 +46,15 @@ class ClaimRecord(db.Model):
     admin_corrected_label = db.Column(db.String(50), nullable=True)
 
 with app.app_context():
-    import sqlalchemy
     try:
         db.create_all()
+        # Ensure column exists on legacy production tables
+        with db.engine.connect() as conn:
+            conn.execute(db.text("ALTER TABLE claim_record ADD COLUMN IF NOT EXISTS admin_corrected_label VARCHAR(50);"))
+            conn.commit()
     except Exception as e:
         db.session.rollback()
-        print(f"DB Init Note: {e}")
+        print(f"DB Init/Migration Note: {e}")
 
 @app.route("/api/assess", methods=["POST"])
 def assess_claim():
